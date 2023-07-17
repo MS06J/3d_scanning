@@ -54,16 +54,14 @@ def get_pseudo_mesh_vertices(a=None, b=None, c=None, no_children=False, no_paren
         surface_normal=normalize(np.subtract(c,b))
         ori_on_plane=np.array([delta,0,0])
     else:
-        ori_on_plane=np.divide(np.add(normalize(np.subtract(a,b)),normalize(np.subtract(c,b))),2)
-        surface_normal=np.cross(ori_on_plane,np.cross(a,ori_on_plane))
-    # retract the length of ori to delta
-    ori_on_plane=normalize(ori_on_plane, delta)
-    vertices=np.empty(5, dtype=object)
+        ori_on_plane=normalize(np.cross(np.subtract(a,b), np.subtract(c,b)),delta)
+        surface_normal=np.subtract(normalize(np.subtract(a,b)), normalize(np.subtract(c,b)))
+    vertices=np.zeros(5, dtype=object)
     vertices[0]=b
     vertices[1]=ori_on_plane
     # calculate the vector first, add the origin (point b) later
     for i in range(2,5):
-        vertices[i]=rotate_vector(vertices[i-1], 90, surface_normal)
+        vertices[i]=normalize(rotate_vector(vertices[i-1], 90, surface_normal),delta)
     # add the origin (point b) make it into vertices of the rectangle
     for i in range(1,5):
         vertices[i]=np.add(vertices[i],b)
@@ -72,15 +70,15 @@ def get_pseudo_mesh_vertices(a=None, b=None, c=None, no_children=False, no_paren
 
 def write_perpendicular_surface_connection_idx(bone_name):
     #write connections on the surface perpendicular to surface normal
-    idx=name2idx[bone_name]
+    idx=5*name2idx[bone_name]
     for i in range(4):
         array_to_write=[idx, idx+1, idx+(i+1)%4+1]
         print('3', *array_to_write,file=f)
 
 def write_parallel_surface_connection_idx(bone_name, previous_bone_name):
-    idx=name2idx[previous_bone_name]
+    idx=5*name2idx[previous_bone_name]
     v=[idx, idx+1, idx+2, idx+3, idx+4]
-    idx=name2idx[bone_name]
+    idx=5*name2idx[bone_name]
     i=[idx, idx+1, idx+2, idx+3, idx+4]
 
     print('3', v[1], i[1], i[2], file=f)
@@ -96,7 +94,7 @@ def write_parallel_surface_connection_idx(bone_name, previous_bone_name):
 armature_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'ARMATURE']
 print('start')
 
-delta=0.00000001 #delta control the width of the mesh
+delta=0.05 #delta control the width of the mesh
 scale=10 #scaling the coordinate of the skeleton
 
 nodes=list()
@@ -125,12 +123,13 @@ for armature_obj in armature_objects:
         #start with head
         for starting_bone in armature_obj.data.bones:
             if starting_bone.parent is None:
-                next_joint_coordinate=get_bone_coordinate(starting_bone)
                 current_joint_coordinate=get_bone_coordinate(starting_bone, get_head=True)
+                next_joint_coordinate=get_bone_coordinate(starting_bone)
                 #get vectices and record writing index
                 node2vertex['starting point'+str(starting_point_count)]=get_pseudo_mesh_vertices(b=current_joint_coordinate, c=next_joint_coordinate, no_parent=True)
                 name2idx['starting point'+str(starting_point_count)]=already_write_count
                 #write vertices coordinates into file
+                print('#', 'starting point'+str(starting_point_count), file=f)
                 [print(*vertices, file=f) for vertices in node2vertex['starting point'+str(starting_point_count)]]
 
                 already_write_count=already_write_count+1
@@ -142,20 +141,23 @@ for armature_obj in armature_objects:
                     name2idx[current_bone.name]=already_write_count
                     already_write_count=already_write_count+1
 
-                    if len(current_bone.children)==0:
-                        current_joint_coordinate=get_bone_coordinate(current_bone)
+                    if len(current_bone.children)==0: #beginning head
                         previous_joint_coordinate=get_bone_coordinate(current_bone, get_head=True)
+                        current_joint_coordinate=get_bone_coordinate(current_bone)
                         node2vertex[current_bone.name]=get_pseudo_mesh_vertices(a=previous_joint_coordinate, b=current_joint_coordinate, no_children=True)
                         #write vertices coordinates into file
+                        print('#', current_bone.name, file=f)
                         [print(*vertices, file=f) for vertices in node2vertex[current_bone.name]]
                         print("Done with bone-chain", starting_point_count, "coordinates writing")
                         break
                     else:
-                        next_joint_coordinate=get_bone_coordinate(current_bone.children[0])
-                        current_joint_coordinate=get_bone_coordinate(current_bone)
                         previous_joint_coordinate=get_bone_coordinate(current_bone, get_head=True)
-                        node2vertex[current_bone.name]=get_pseudo_mesh_vertices(a=next_joint_coordinate,b=current_joint_coordinate,c=previous_joint_coordinate)
+                        current_joint_coordinate=get_bone_coordinate(current_bone)
+                        next_joint_coordinate=get_bone_coordinate(current_bone.children[0])
+                        node2vertex[current_bone.name]=get_pseudo_mesh_vertices(a=previous_joint_coordinate,b=current_joint_coordinate,c=next_joint_coordinate)
+                        # node2vertex[current_bone.name]=get_pseudo_mesh_vertices(a=previous_joint_coordinate, b=current_joint_coordinate, no_children=True)
                         #write vertices coordinates into file
+                        print('#', current_bone.name, file=f)
                         [print(*vertices, file=f) for vertices in node2vertex[current_bone.name]]
                         current_bone=current_bone.children[0]
 
