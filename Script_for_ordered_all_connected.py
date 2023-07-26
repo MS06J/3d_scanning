@@ -104,6 +104,10 @@ def write_parallel_surface_connection_idx(bone_name, previous_bone_name, name2id
     print('3', v[4], i[1], i[4], file=file_to_write)
     print('3', v[4], v[1], i[1], file=file_to_write)
 
+def write_that_fucking_cube(bone,delta):
+    cube_vertices=list()
+    
+
 
 # Get all armature objects in the scene
 armature_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'ARMATURE']
@@ -120,8 +124,8 @@ name2idx=dict()
 name2surface_normal=dict()
 name2vertices=dict()
 starting_viewed=False
-
-add_remark_in_file=True
+add_vertical_planes=True
+add_remark_in_file=False
 
 spine_node_num=13
 leg_node_num=5
@@ -134,9 +138,12 @@ for armature_obj in armature_objects:
 
         print("COFF", file=f)
 
-        #print (node_num, face_num, edge_nmu)
+        #print (node_num, face_num, edge_num)
         #print(5*(spine_node_num+4*leg_node_num), 12*spine_node_num-8+4*(12*leg_node_num-8), 0, file=f)
-        print('165 356 0', file=f)
+        if add_vertical_planes:
+            print('165 356 0', file=f)
+        else:
+            print('165 264 0', file=f)
 
         #start with head
         for starting_bone in armature_obj.data.bones:
@@ -210,7 +217,8 @@ for armature_obj in armature_objects:
                 while True:
                     if add_remark_in_file:
                         print('#', current_bone.name, file=f)
-                    write_perpendicular_surface_connection_idx(current_bone.name, name2idx,f)
+                    if add_vertical_planes:
+                        write_perpendicular_surface_connection_idx(current_bone.name, name2idx,f)
                     write_parallel_surface_connection_idx(current_bone.name, current_bone.parent.name, name2idx, f)
                     if len(current_bone.children)==0:
                         print("Done with bone-chain", starting_point_count, " connection writing")
